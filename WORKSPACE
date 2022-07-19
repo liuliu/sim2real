@@ -5,7 +5,7 @@ git_repository(
     name = "s4nnc",
     commit = "745ae9bb80a7b6d0a86a9841de8aefe45e356b2e",
     remote = "https://github.com/liuliu/s4nnc.git",
-    #shallow_since = "1652483240 -0400",
+    shallow_since = "1658270701 -0400",
 )
 
 load("@s4nnc//:deps.bzl", "s4nnc_deps")
