@@ -96,6 +96,14 @@ new_git_repository(
 )
 
 new_git_repository(
+    name = "JPEG",
+    build_file = "jpeg.BUILD",
+    commit = "3313ba7bbd4766650b8869ed680bc4071c98b2d7",
+    remote = "https://github.com/kelvin13/jpeg.git",
+    shallow_since = "1642710782 -0600",
+)
+
+new_git_repository(
     name = "SwiftArgumentParser",
     build_file = "swift-argument-parser.BUILD",
     commit = "82905286cc3f0fa8adc4674bf49437cab65a8373",

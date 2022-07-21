@@ -1,5 +1,5 @@
-import C_ccv
 import Foundation
+import JPEG
 import MuJoCo
 import NIOCore
 import NIOHTTP1
@@ -533,26 +533,48 @@ final class Timer {
   var cpusync: Double = 0
 }
 let timer = Timer()
-var image = ccv_dense_matrix_new(720, 1280, Int32(CCV_8U | CCV_C3), nil, 0)
+var rgb = Array(repeating: JPEG.RGB(0, 0, 0), count: 720 * 1280)
 var lasttime = GLContext.time
 simulate.renderContextCallback = { context, width, height in
-  if image?.pointee.rows != height || image?.pointee.cols != width {
-    ccv_matrix_free(image)
-    image = ccv_dense_matrix_new(height, width, Int32(CCV_8U | CCV_C3), nil, 0)
+  if height * width > rgb.count {
+    rgb = Array(repeating: JPEG.RGB(0, 0, 0), count: Int(height * width))
   }
   let nowtime = GLContext.time
   // No need to send more than 30fps.
   guard nowtime - lasttime >= 1.0 / 30.0 else {
     return
   }
+  print("compress one")
   lasttime = nowtime
-  context.readPixels(
-    rgb: &image!.pointee.data.u8,
-    viewport: MjrRect(left: 0, bottom: 0, width: width, height: height))
-  ccv_flip(image, &image, 0, Int32(CCV_FLIP_Y))
-  let _ = "/tmp/output.jpg".withCString {
-    ccv_write(image, UnsafeMutablePointer(mutating: $0), nil, Int32(CCV_IO_JPEG_FILE), nil)
+  rgb.withUnsafeMutableBytes {
+    guard var u8 = $0.bindMemory(to: UInt8.self).baseAddress else { return }
+    context.readPixels(
+      rgb: &u8,
+      viewport: MjrRect(left: 0, bottom: 0, width: width, height: height))
   }
+  let layout: JPEG.Layout<JPEG.Common> = .init(
+    format: .ycc8,
+    process: .baseline,
+    components: [
+      1: (factor: (2, 2), qi: 0),  // Y
+      2: (factor: (1, 1), qi: 1),  // Cb
+      3: (factor: (1, 1), qi: 1),  // Cr
+    ],
+    scans: [
+      .sequential((1, \.0, \.0), (2, \.1, \.1), (3, \.1, \.1))
+    ])
+  let jfif: JPEG.JFIF = .init(version: .v1_2, density: (72, 72, .inches))
+  let image: JPEG.Data.Rectangular<JPEG.Common> =
+    .pack(
+      size: (x: Int(width), y: Int(height)), layout: layout, metadata: [.jfif(jfif)], pixels: rgb)
+  print("start to compress")
+  try? image.compress(
+    path: "/tmp/output.jpg",
+    quanta: [
+      0: JPEG.CompressionLevel.luminance(0.05).quanta,
+      1: JPEG.CompressionLevel.chrominance(0.05).quanta,
+    ])
+  print("end to compress")
   queue.sync {
     data = try! Data(contentsOf: URL(fileURLWithPath: "/tmp/output.jpg"))
     let promises = registeredPromisesForData
@@ -618,4 +640,3 @@ while !simulate.exitrequest {
     m.forward(data: &d)
   }
 }
-ccv_matrix_free(image)
