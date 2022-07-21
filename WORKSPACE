@@ -80,6 +80,22 @@ load("@swift-mujoco//:deps.bzl", "swift_mujoco_deps")
 swift_mujoco_deps()
 
 new_git_repository(
+    name = "swift-atomics",
+    build_file = "swift-atomics.BUILD",
+    commit = "088df27f0683f2b458021ebf04873174b91ae597",
+    remote = "https://github.com/apple/swift-atomics.git",
+    shallow_since = "1649274362 -0700",
+)
+
+new_git_repository(
+    name = "SwiftNIO",
+    build_file = "swift-nio.BUILD",
+    commit = "48916a49afedec69275b70893c773261fdd2cfde",
+    remote = "https://github.com/apple/swift-nio.git",
+    shallow_since = "1657195654 +0100",
+)
+
+new_git_repository(
     name = "SwiftArgumentParser",
     build_file = "swift-argument-parser.BUILD",
     commit = "82905286cc3f0fa8adc4674bf49437cab65a8373",
