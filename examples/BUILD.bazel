@@ -1,0 +1,15 @@
+load("@build_bazel_rules_swift//swift:swift.bzl", "swift_binary")
+
+swift_binary(
+    name = "simulate2",
+    srcs = ["simulate2/main.swift"],
+    deps = [
+        "@SwiftNIO//:NIOConcurrencyHelpers",
+        "@SwiftNIO//:NIOCore",
+        "@SwiftNIO//:NIOHTTP1",
+        "@SwiftNIO//:NIOPosix",
+        "@SwiftNumerics//:Numerics",
+        "@ccv//lib:ccv",
+        "@swift-mujoco//:swift-mujoco",
+    ],
+)

@@ -5,9 +5,6 @@ py_library(
     visibility = ["//lab:__subpackages__"],
     deps = [
         requirement("jupyterlab"),
-        requirement("pandas"),
-        requirement("numpy"),
-        requirement("matplotlib"),
     ],
 )
 
