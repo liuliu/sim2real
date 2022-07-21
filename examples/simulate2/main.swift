@@ -31,25 +31,7 @@ private func httpResponseHead(
   request: HTTPRequestHead, status: HTTPResponseStatus, headers: HTTPHeaders = HTTPHeaders()
 ) -> HTTPResponseHead {
   var head = HTTPResponseHead(version: request.version, status: status, headers: headers)
-  let connectionHeaders: [String] = head.headers[canonicalForm: "connection"].map {
-    $0.lowercased()
-  }
-
-  if !connectionHeaders.contains("keep-alive") && !connectionHeaders.contains("close") {
-    // the user hasn't pre-set either 'keep-alive' or 'close', so we might need to add headers
-
-    switch (request.isKeepAlive, request.version.major, request.version.minor) {
-    case (true, 1, 0):
-      // HTTP/1.0 and the request has 'Connection: keep-alive', we should mirror that
-      head.headers.add(name: "Connection", value: "keep-alive")
-    case (false, 1, let n) where n >= 1:
-      // HTTP/1.1 (or treated as such) and the request has 'Connection: close', we should mirror that
-      head.headers.add(name: "Connection", value: "close")
-    default:
-      // we should match the default or are dealing with some HTTP that we don't support, let's leave as is
-      ()
-    }
-  }
+  head.headers.add(name: "Connection", value: "close")
   return head
 }
 
@@ -79,7 +61,6 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
   }
 
   private var buffer: ByteBuffer! = nil
-  private var keepAlive = false
   private var state = State.idle
   private var continuousCount: Int = 0
 
@@ -250,7 +231,6 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
   ) {
     switch request {
     case .head(let request):
-      self.keepAlive = request.isKeepAlive
       self.continuousCount = 0
       self.state.requestReceived()
       func doNext(_ data: Data) {
@@ -299,13 +279,9 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
     _ context: ChannelHandlerContext, trailers: HTTPHeaders?, promise: EventLoopPromise<Void>?
   ) {
     self.state.responseComplete()
-
-    let promise = self.keepAlive ? promise : (promise ?? context.eventLoop.makePromise())
-    if !self.keepAlive {
-      promise!.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
-    }
+    let promise = promise ?? context.eventLoop.makePromise()
+    promise.futureResult.whenComplete { (_: Result<Void, Error>) in context.close(promise: nil) }
     self.handler = nil
-
     context.writeAndFlush(self.wrapOutboundOut(.end(trailers)), promise: promise)
   }
 
@@ -324,10 +300,7 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
         self.handler!(context, reqPart)
         return
       }
-
-      self.keepAlive = request.isKeepAlive
       self.state.requestReceived()
-
       var responseHead = httpResponseHead(request: request, status: .ok)
       self.buffer.clear()
       self.buffer.writeString(self.defaultResponse)
@@ -368,7 +341,7 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
       case .idle, .waitingForRequestBody:
         context.close(promise: nil)
       case .sendingResponse:
-        self.keepAlive = false
+        break
       }
     default:
       context.fireUserInboundEventTriggered(event)
