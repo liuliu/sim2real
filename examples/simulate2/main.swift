@@ -66,7 +66,7 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
 
   private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
   private let defaultResponse = """
-    <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body><img id="mjpeg-container" src="/mjpeg">
+    <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body style="margin:0"><img id="mjpeg-container" src="/mjpeg" style="margin:auto;display:block">
     <script>
       var wsconnection = new WebSocket("ws://192.168.86.5:12345/websocket");
       var commonKeyCodes = {
@@ -219,6 +219,12 @@ private final class HTTPHandler: ChannelInboundHandler, RemovableChannelHandler 
       window.addEventListener("keydown", function (e) {
         e.preventDefault()
         wsconnection.send(JSON.stringify({"keyCode": commonKeyCodes[e.code], "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}))
+      });
+      window.addEventListener("resize", function () {
+        wsconnection.send(JSON.stringify({"width": Math.floor(window.innerWidth / 16) * 16, "height": Math.floor(window.innerHeight / 16) * 16}))
+      });
+      wsconnection.addEventListener("open", function () {
+        wsconnection.send(JSON.stringify({"width": Math.floor(window.innerWidth / 16) * 16, "height": Math.floor(window.innerHeight / 16) * 16}))
       });
     </script>
     """
