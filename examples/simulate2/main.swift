@@ -534,11 +534,18 @@ final class Timer {
 }
 let timer = Timer()
 var image = ccv_dense_matrix_new(720, 1280, Int32(CCV_8U | CCV_C3), nil, 0)
+var lasttime = GLContext.time
 simulate.renderContextCallback = { context, width, height in
   if image?.pointee.rows != height || image?.pointee.cols != width {
     ccv_matrix_free(image)
     image = ccv_dense_matrix_new(height, width, Int32(CCV_8U | CCV_C3), nil, 0)
   }
+  let nowtime = GLContext.time
+  // No need to send more than 30fps.
+  guard nowtime - lasttime >= 1.0 / 30.0 else {
+    return
+  }
+  lasttime = nowtime
   context.readPixels(
     rgb: &image!.pointee.data.u8,
     viewport: MjrRect(left: 0, bottom: 0, width: width, height: height))
