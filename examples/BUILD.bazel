@@ -8,6 +8,7 @@ swift_binary(
         "@SwiftNIO//:NIOCore",
         "@SwiftNIO//:NIOHTTP1",
         "@SwiftNIO//:NIOPosix",
+        "@SwiftNIO//:NIOWebSocket",
         "@SwiftNumerics//:Numerics",
         "@ccv//lib:ccv",
         "@swift-mujoco//:swift-mujoco",
