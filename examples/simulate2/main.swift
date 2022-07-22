@@ -10,7 +10,7 @@ import Numerics
 var data = Data()
 var registeredPromisesForData = [EventLoopPromise<Data>]()
 let queue = DispatchQueue(label: "data", qos: .default)
-let simulate = Simulate(width: 1280, height: 720)
+let simulate = Simulate(width: 1920, height: 1080)
 
 struct JSEvent: Decodable {
   var keyCode: Int32?
@@ -419,7 +419,7 @@ private final class WebSocketControlHandler: ChannelInboundHandler {
         } else if let deltaX = jsEvent.deltaX, let deltaY = jsEvent.deltaY {
           simulate.sendEvent(.scroll(.init(sx: deltaX, sy: deltaY)))
         } else if let width = jsEvent.width, let height = jsEvent.height {
-          simulate.sendEvent(.resize(.init(width: width, height: height)))
+          simulate.sendEvent(.resize(.init(width: min(width, 1920), height: min(height, 1080))))
         }
       }
     case .binary, .continuation, .pong:
@@ -526,7 +526,7 @@ if CommandLine.arguments.count > 1 {
   simulate.filename = CommandLine.arguments[1]
   simulate.loadrequest = 2
 }
-simulate.makeContext(hidden: false)
+simulate.makeContext(hidden: true)
 let vmode = GLContext.videoMode
 final class Timer {
   var simsync: Double = 0
