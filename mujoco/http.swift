@@ -46,7 +46,7 @@ public class HTTPRenderServer {
     self.streamKey =
       streamKey
       ?? String(
-        (0..<6).map { _ in
+        (0..<8).map { _ in
           "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".randomElement()!
         })
     self.maxWidth = maxWidth
@@ -96,6 +96,9 @@ public class HTTPRenderServer {
     try! group?.syncShutdownGracefully()
   }
 
+  private var host: String = ""
+  private var port: Int = 0
+
   public func bind(host: String, port: Int) -> EventLoopFuture<Channel> {
     let group = MultiThreadedEventLoopGroup(numberOfThreads: numberOfThreads)
     self.group = group
@@ -131,6 +134,12 @@ public class HTTPRenderServer {
       .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
       .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
     return socketBootstrap.bind(host: host, port: port)
+  }
+
+  public var html: String {
+    """
+      <img id="\(self.streamKey)-motion-jpeg-img" src="http://\(host):\(port)/\(streamKey).mjpg" style="margin:auto;display:block"><script src="http://\(host):\(port)/\(streamKey).js"></script>
+    """
   }
 }
 
@@ -337,9 +346,17 @@ extension HTTPRenderServer {
             "AltRight": 346
           };
           var mjpeg = document.getElementById("\(self.streamKey)-motion-jpeg-img");
+          function onKeydown(e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"keyCode": commonKeyCodes[e.code], "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+          }
           mjpeg.addEventListener("mouseenter", function (e) {
             e.preventDefault();
             wsconnection.send(JSON.stringify({"mouseState": "move", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+            window.addEventListener("keydown", onKeydown);
+          });
+          mjpeg.addEventListener("mouseleave", function (e) {
+            window.removeEventListener("keydown", onKeydown);
           });
           mjpeg.addEventListener("mousemove", function (e) {
             e.preventDefault();
@@ -365,10 +382,6 @@ extension HTTPRenderServer {
           });
           mjpeg.addEventListener("drop", function (e) {
             e.preventDefault();
-          });
-          window.addEventListener("keydown", function (e) {
-            e.preventDefault();
-            wsconnection.send(JSON.stringify({"keyCode": commonKeyCodes[e.code], "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
           });
         """
       if self.canResize {
