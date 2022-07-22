@@ -534,11 +534,15 @@ final class Timer {
 }
 let timer = Timer()
 var image = ccv_dense_matrix_new(720, 1280, Int32(CCV_8U | CCV_C3), nil, 0)
+var buffer = UnsafeMutablePointer<UInt8>.allocate(
+  capacity: Int(image!.pointee.rows * image!.pointee.cols) * 2)
 var lasttime = GLContext.time
 simulate.renderContextCallback = { context, width, height in
   if image?.pointee.rows != height || image?.pointee.cols != width {
     ccv_matrix_free(image)
     image = ccv_dense_matrix_new(height, width, Int32(CCV_8U | CCV_C3), nil, 0)
+    buffer.deallocate()
+    buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Int(width * height) * 2)
   }
   let nowtime = GLContext.time
   // No need to send more than 30fps.
@@ -550,11 +554,10 @@ simulate.renderContextCallback = { context, width, height in
     rgb: &image!.pointee.data.u8,
     viewport: MjrRect(left: 0, bottom: 0, width: width, height: height))
   ccv_flip(image, &image, 0, Int32(CCV_FLIP_Y))
-  let _ = "/tmp/output.jpg".withCString {
-    ccv_write(image, UnsafeMutablePointer(mutating: $0), nil, Int32(CCV_IO_JPEG_FILE), nil)
-  }
+  var written: Int = Int(width * height) * 2
+  ccv_write(image, buffer, &written, Int32(CCV_IO_JPEG_STREAM), nil)
   queue.sync {
-    data = try! Data(contentsOf: URL(fileURLWithPath: "/tmp/output.jpg"))
+    data = Data(bytes: buffer, count: written)
     let promises = registeredPromisesForData
     registeredPromisesForData.removeAll()
     for promise in promises {
@@ -619,3 +622,4 @@ while !simulate.exitrequest {
   }
 }
 ccv_matrix_free(image)
+buffer.deallocate()
