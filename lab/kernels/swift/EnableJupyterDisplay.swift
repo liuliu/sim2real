@@ -57,6 +57,7 @@ enum JupyterDisplay {
 
     var json: String {
       let encoder = JSONEncoder()
+      encoder.outputFormatting = [.sortedKeys]
       guard let jsonData = try? encoder.encode(self) else { return "{}" }
       let jsonString = String(data: jsonData, encoding: .utf8)!
       return jsonString
@@ -179,13 +180,14 @@ enum JupyterDisplay {
     }
     var json: String {
       let encoder = JSONEncoder()
+      encoder.outputFormatting = [.sortedKeys]
       guard let jsonData = try? encoder.encode(self) else { return "{}" }
       let jsonString = String(data: jsonData, encoding: .utf8)!
       return jsonString
     }
   }
 
-  static var parentHeader = ""
+  static var parentHeader = "{}"
   static var messages = [Message]()
 }
 

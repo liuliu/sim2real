@@ -135,6 +135,14 @@ new_git_repository(
     shallow_since = "1647972246 -0700",
 )
 
+new_git_repository(
+    name = "SwiftCrypto",
+    build_file = "swift-crypto.BUILD",
+    commit = "a8911e0fadc25aef1071d582355bd1037a176060",
+    remote = "https://github.com/apple/swift-crypto.git",
+    shallow_since = "1641892042 +0000",
+)
+
 # buildifier is written in Go and hence needs rules_go to be built.
 # See https://github.com/bazelbuild/rules_go for the up to date setup instructions.
 

@@ -303,7 +303,7 @@ class SwiftKernel(Kernel):
         self.debugger.SetScriptLanguage(lldb.eScriptLanguageNone)
 
         repl_swift = os.environ["REPL_SWIFT_PATH"]
-        self.target = self.debugger.CreateTargetWithFileAndArch(repl_swift, "")
+        self.target = self.debugger.CreateTargetWithFileAndArch(repl_swift, lldb.LLDB_ARCH_DEFAULT)
         if not self.target:
             raise Exception("Could not create target %s" % repl_swift)
 
