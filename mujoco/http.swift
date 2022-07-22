@@ -210,169 +210,181 @@ extension HTTPRenderServer {
     private var continuousCount: Int = 0
 
     private var handler: ((ChannelHandlerContext, HTTPServerRequestPart) -> Void)?
-    private let defaultResponse = """
-      <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body style="margin:0"><img id="mjpeg-container" src="/mjpeg" style="margin:auto;display:block">
-      <script>
-        var wsconnection = new WebSocket("ws://" + window.location.host + "/websocket");
-        var commonKeyCodes = {
-          "Space": 32,
-          "Quote": 39, /* ' */
-          "Comma": 44, /* , */
-          "Minus": 45, /* - */
-          "Period": 46, /* . */
-          "Slash": 47, /* / */
-          "Digit0": 48,
-          "Digit1": 49,
-          "Digit2": 50,
-          "Digit3": 51,
-          "Digit4": 52,
-          "Digit5": 53,
-          "Digit6": 54,
-          "Digit7": 55,
-          "Digit8": 56,
-          "Digit9": 57,
-          "Semicolon": 59, /* ; */
-          "Equal": 61, /* = */
-          "KeyA": 65,
-          "KeyB": 66,
-          "KeyC": 67,
-          "KeyD": 68,
-          "KeyE": 69,
-          "KeyF": 70,
-          "KeyG": 71,
-          "KeyH": 72,
-          "KeyI": 73,
-          "KeyJ": 74,
-          "KeyK": 75,
-          "KeyL": 76,
-          "KeyM": 77,
-          "KeyN": 78,
-          "KeyO": 79,
-          "KeyP": 80,
-          "KeyQ": 81,
-          "KeyR": 82,
-          "KeyS": 83,
-          "KeyT": 84,
-          "KeyU": 85,
-          "KeyV": 86,
-          "KeyW": 87,
-          "KeyX": 88,
-          "KeyY": 89,
-          "KeyZ": 90,
-          "BracketLeft": 91, /* [ */
-          "Backslash": 92, /* \\ */
-          "BracketRight": 93, /* ] */
-          "Backquote": 96, /* ` */
-          "Escape": 256,
-          "Enter": 257,
-          "Tab": 258,
-          "Backspace": 259,
-          "Insert": 260,
-          "Delete": 261,
-          "ArrowRight": 262,
-          "ArrowLeft": 263,
-          "ArrowDown": 264,
-          "ArrowUp": 265,
-          "PageUp": 266,
-          "PageDown": 267,
-          "Home": 268,
-          "End": 269,
-          "CapsLock": 280,
-          "ScrollLock": 281,
-          "NumLock": 282,
-          "PrintScreen": 283,
-          "Pause": 284,
-          "F1": 290,
-          "F2": 291,
-          "F3": 292,
-          "F4": 293,
-          "F5": 294,
-          "F6": 295,
-          "F7": 296,
-          "F8": 297,
-          "F9": 298,
-          "F10": 299,
-          "F11": 300,
-          "F12": 301,
-          "F13": 302,
-          "F14": 303,
-          "F15": 304,
-          "F16": 305,
-          "F17": 306,
-          "F18": 307,
-          "F19": 308,
-          "F20": 309,
-          "F21": 310,
-          "F22": 311,
-          "F23": 312,
-          "F24": 313,
-          "F25": 314,
-          "Numpad0": 320,
-          "Numpad1": 321,
-          "Numpad2": 322,
-          "Numpad3": 323,
-          "Numpad4": 324,
-          "Numpad5": 325,
-          "Numpad6": 326,
-          "Numpad7": 327,
-          "Numpad8": 328,
-          "Numpad9": 329,
-          "NumpadDecimal": 330,
-          "NumpadDivide": 331,
-          "NumpadMultiply": 332,
-          "NumpadSubstract": 333,
-          "NumpadAdd": 334,
-          "NumpadEnter": 335,
-          "NumpadEqual": 336,
-          "ShiftLeft": 340,
-          "ControlLeft": 341,
-          "AltLeft": 342,
-          "ShiftRight": 344,
-          "ControlRight": 345,
-          "AltRight": 346
-        };
-        var mjpeg = document.getElementById("mjpeg-container");
-        mjpeg.addEventListener("mouseenter", function (e) {
-          e.preventDefault()
-          wsconnection.send(JSON.stringify({"mouseState": "move", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}))
-        });
-        mjpeg.addEventListener("mousemove", function (e) {
-          e.preventDefault()
-          wsconnection.send(JSON.stringify({"mouseState": "move", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}))
-        });
-        mjpeg.addEventListener("mousedown", function (e) {
-          e.preventDefault()
-          wsconnection.send(JSON.stringify({"mouseState": "press", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}))
-        });
-        mjpeg.addEventListener("mouseup", function (e) {
-          e.preventDefault()
-          wsconnection.send(JSON.stringify({"mouseState": "release", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}))
-        });
-        mjpeg.addEventListener("wheel", function (e) {
-          e.preventDefault()
-          wsconnection.send(JSON.stringify({"deltaX": e.deltaX / 16, "deltaY": -e.deltaY / 16}))
-        });
-        mjpeg.addEventListener("contextmenu", function (e) {
-          e.preventDefault()
-        });
-        mjpeg.addEventListener("dragstart", function (e) {
-          e.preventDefault()
-        });
-        mjpeg.addEventListener("drop", function (e) {
-          e.preventDefault()
-        });
-        window.addEventListener("keydown", function (e) {
-          e.preventDefault()
-          wsconnection.send(JSON.stringify({"keyCode": commonKeyCodes[e.code], "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}))
-        });
-        window.addEventListener("resize", function () {
-          wsconnection.send(JSON.stringify({"width": Math.floor(window.innerWidth / 16) * 16, "height": Math.floor(window.innerHeight / 16) * 16}))
-        });
-        wsconnection.addEventListener("open", function () {
-          wsconnection.send(JSON.stringify({"width": Math.floor(window.innerWidth / 16) * 16, "height": Math.floor(window.innerHeight / 16) * 16}))
-        });
-      </script>
+    private var indexPageResponse: String {
       """
+        <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body style="margin:0"><img id="\(self.streamKey)-motion-jpeg-img" src="/\(self.streamKey).mjpg" style="margin:auto;display:block"><script src="/\(self.streamKey).js"></script>
+      """
+    }
+    private var jsResponse: String {
+      let firstPart = """
+        (function () {
+          var wsconnection = new WebSocket("ws://" + window.location.host + "/\(self.streamKey).ws");
+          var commonKeyCodes = {
+            "Space": 32,
+            "Quote": 39, /* ' */
+            "Comma": 44, /* , */
+            "Minus": 45, /* - */
+            "Period": 46, /* . */
+            "Slash": 47, /* / */
+            "Digit0": 48,
+            "Digit1": 49,
+            "Digit2": 50,
+            "Digit3": 51,
+            "Digit4": 52,
+            "Digit5": 53,
+            "Digit6": 54,
+            "Digit7": 55,
+            "Digit8": 56,
+            "Digit9": 57,
+            "Semicolon": 59, /* ; */
+            "Equal": 61, /* = */
+            "KeyA": 65,
+            "KeyB": 66,
+            "KeyC": 67,
+            "KeyD": 68,
+            "KeyE": 69,
+            "KeyF": 70,
+            "KeyG": 71,
+            "KeyH": 72,
+            "KeyI": 73,
+            "KeyJ": 74,
+            "KeyK": 75,
+            "KeyL": 76,
+            "KeyM": 77,
+            "KeyN": 78,
+            "KeyO": 79,
+            "KeyP": 80,
+            "KeyQ": 81,
+            "KeyR": 82,
+            "KeyS": 83,
+            "KeyT": 84,
+            "KeyU": 85,
+            "KeyV": 86,
+            "KeyW": 87,
+            "KeyX": 88,
+            "KeyY": 89,
+            "KeyZ": 90,
+            "BracketLeft": 91, /* [ */
+            "Backslash": 92, /* \\ */
+            "BracketRight": 93, /* ] */
+            "Backquote": 96, /* ` */
+            "Escape": 256,
+            "Enter": 257,
+            "Tab": 258,
+            "Backspace": 259,
+            "Insert": 260,
+            "Delete": 261,
+            "ArrowRight": 262,
+            "ArrowLeft": 263,
+            "ArrowDown": 264,
+            "ArrowUp": 265,
+            "PageUp": 266,
+            "PageDown": 267,
+            "Home": 268,
+            "End": 269,
+            "CapsLock": 280,
+            "ScrollLock": 281,
+            "NumLock": 282,
+            "PrintScreen": 283,
+            "Pause": 284,
+            "F1": 290,
+            "F2": 291,
+            "F3": 292,
+            "F4": 293,
+            "F5": 294,
+            "F6": 295,
+            "F7": 296,
+            "F8": 297,
+            "F9": 298,
+            "F10": 299,
+            "F11": 300,
+            "F12": 301,
+            "F13": 302,
+            "F14": 303,
+            "F15": 304,
+            "F16": 305,
+            "F17": 306,
+            "F18": 307,
+            "F19": 308,
+            "F20": 309,
+            "F21": 310,
+            "F22": 311,
+            "F23": 312,
+            "F24": 313,
+            "F25": 314,
+            "Numpad0": 320,
+            "Numpad1": 321,
+            "Numpad2": 322,
+            "Numpad3": 323,
+            "Numpad4": 324,
+            "Numpad5": 325,
+            "Numpad6": 326,
+            "Numpad7": 327,
+            "Numpad8": 328,
+            "Numpad9": 329,
+            "NumpadDecimal": 330,
+            "NumpadDivide": 331,
+            "NumpadMultiply": 332,
+            "NumpadSubstract": 333,
+            "NumpadAdd": 334,
+            "NumpadEnter": 335,
+            "NumpadEqual": 336,
+            "ShiftLeft": 340,
+            "ControlLeft": 341,
+            "AltLeft": 342,
+            "ShiftRight": 344,
+            "ControlRight": 345,
+            "AltRight": 346
+          };
+          var mjpeg = document.getElementById("\(self.streamKey)-motion-jpeg-img");
+          mjpeg.addEventListener("mouseenter", function (e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"mouseState": "move", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+          });
+          mjpeg.addEventListener("mousemove", function (e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"mouseState": "move", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+          });
+          mjpeg.addEventListener("mousedown", function (e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"mouseState": "press", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+          });
+          mjpeg.addEventListener("mouseup", function (e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"mouseState": "release", "buttons": e.buttons, "offsetX": e.offsetX, "offsetY": e.offsetY, "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+          });
+          mjpeg.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"deltaX": e.deltaX / 16, "deltaY": -e.deltaY / 16}));
+          });
+          mjpeg.addEventListener("contextmenu", function (e) {
+            e.preventDefault();
+          });
+          mjpeg.addEventListener("dragstart", function (e) {
+            e.preventDefault();
+          });
+          mjpeg.addEventListener("drop", function (e) {
+            e.preventDefault();
+          });
+          window.addEventListener("keydown", function (e) {
+            e.preventDefault();
+            wsconnection.send(JSON.stringify({"keyCode": commonKeyCodes[e.code], "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));
+          });
+        """
+      if self.canResize {
+        return firstPart + """
+          window.addEventListener("resize", function () {
+            wsconnection.send(JSON.stringify({"width": Math.floor(window.innerWidth / 16) * 16, "height": Math.floor(window.innerHeight / 16) * 16}));
+          });
+          wsconnection.addEventListener("open", function () {
+            wsconnection.send(JSON.stringify({"width": Math.floor(window.innerWidth / 16) * 16, "height": Math.floor(window.innerHeight / 16) * 16}));
+          });
+          })();
+          """
+      } else {
+        return firstPart + "\n})();"
+      }
+    }
 
     private var frameProvider: HTTPHandlerFrameProvider
     private let streamKey: String
@@ -419,7 +431,7 @@ extension HTTPRenderServer {
       }
     }
 
-    func mjpegHandler(request reqHead: HTTPRequestHead) -> (
+    func mjpgHandler(request reqHead: HTTPRequestHead) -> (
       (ChannelHandlerContext, HTTPServerRequestPart) -> Void
     )? {
       return {
@@ -447,15 +459,35 @@ extension HTTPRenderServer {
       switch reqPart {
       case .head(let request):
 
-        if request.uri == "/mjpeg" {
-          self.handler = self.mjpegHandler(request: request)
+        if request.uri == "/\(self.streamKey).mjpg" {
+          self.handler = self.mjpgHandler(request: request)
           self.handler!(context, reqPart)
+          return
+        } else if request.uri == "/" {
+          self.state.requestReceived()
+          var responseHead = httpResponseHead(request: request, status: .ok)
+          self.buffer.clear()
+          self.buffer.writeString(self.indexPageResponse)
+          responseHead.headers.add(name: "Content-Length", value: "\(self.buffer!.readableBytes)")
+          responseHead.headers.add(name: "Content-Type", value: "text/html; charset=utf-8")
+          let response = HTTPServerResponsePart.head(responseHead)
+          context.write(self.wrapOutboundOut(response), promise: nil)
+          return
+        } else if request.uri == "/\(self.streamKey).js" {
+          self.state.requestReceived()
+          var responseHead = httpResponseHead(request: request, status: .ok)
+          self.buffer.clear()
+          self.buffer.writeString(self.jsResponse)
+          responseHead.headers.add(name: "Content-Length", value: "\(self.buffer!.readableBytes)")
+          responseHead.headers.add(name: "Content-Type", value: "text/html; charset=utf-8")
+          let response = HTTPServerResponsePart.head(responseHead)
+          context.write(self.wrapOutboundOut(response), promise: nil)
           return
         }
         self.state.requestReceived()
-        var responseHead = httpResponseHead(request: request, status: .ok)
+        var responseHead = httpResponseHead(request: request, status: .notFound)
         self.buffer.clear()
-        self.buffer.writeString(self.defaultResponse)
+        self.buffer.writeString("Not Found")
         responseHead.headers.add(name: "Content-Length", value: "\(self.buffer!.readableBytes)")
         responseHead.headers.add(name: "Content-Type", value: "text/html; charset=utf-8")
         let response = HTTPServerResponsePart.head(responseHead)
