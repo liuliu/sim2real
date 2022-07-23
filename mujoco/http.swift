@@ -96,13 +96,11 @@ public class HTTPRenderServer {
     try! group?.syncShutdownGracefully()
   }
 
-  private var host: String = ""
   private var port: Int = 0
 
   public func bind(host: String, port: Int) -> EventLoopFuture<Channel> {
     let group = MultiThreadedEventLoopGroup(numberOfThreads: numberOfThreads)
     self.group = group
-    self.host = host
     self.port = port
     let upgrader = NIOWebSocketServerUpgrader(
       shouldUpgrade: { (channel: Channel, head: HTTPRequestHead) in
@@ -140,7 +138,14 @@ public class HTTPRenderServer {
 
   public var html: String {
     """
-      <img id="\(self.streamKey)-motion-jpeg-img" src="http://\(host):\(port)/\(streamKey).mjpg" style="margin:auto;display:block"><script src="http://\(host):\(port)/\(streamKey).js"></script>
+      <div id="\(self.streamKey)-motion-jpeg-div" style="margin:auto;display:block"></div>
+      <script>
+        var div = document.getElementById("\(self.streamKey)-motion-jpeg-div");
+        div.innerHTML = '<img id="\(self.streamKey)-motion-jpeg-img" src="http://' + window.location.hostname + ':\(port)/\(streamKey).mjpg" style="margin:auto;display:block">';
+        var script = document.createElement("script");
+        script.src = "http://" + window.location.hostname + ":\(port)/\(streamKey).js";
+        div.appendChild(script);
+      </script>
     """
   }
 }
@@ -379,6 +384,7 @@ extension HTTPRenderServer {
           });
           mjpeg.addEventListener("contextmenu", function (e) {
             e.preventDefault();
+            e.stopPropagation();
           });
           mjpeg.addEventListener("dragstart", function (e) {
             e.preventDefault();
@@ -495,7 +501,7 @@ extension HTTPRenderServer {
           self.buffer.clear()
           self.buffer.writeString(self.jsResponse)
           responseHead.headers.add(name: "Content-Length", value: "\(self.buffer!.readableBytes)")
-          responseHead.headers.add(name: "Content-Type", value: "text/html; charset=utf-8")
+          responseHead.headers.add(name: "Content-Type", value: "text/javascript; charset=utf-8")
           let response = HTTPServerResponsePart.head(responseHead)
           context.write(self.wrapOutboundOut(response), promise: nil)
           return
