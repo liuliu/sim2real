@@ -1159,7 +1159,7 @@ class SwiftKernel(Kernel):
             tempfile.gettempdir(), "ibzl", sha256(workspace.encode("utf-8")).hexdigest()
         )
         bazel_bin_dir = (
-            subprocess.check_output(["bazel", "info", "bazel-bin"])
+            subprocess.check_output(["bazel", "info", "bazel-bin", "--compilation_mode=opt"])
             .decode("utf-8")
             .strip()
         )
@@ -1225,7 +1225,7 @@ class SwiftKernel(Kernel):
         with open("%s/BUILD.bazel" % bazel_dep_target_path, "w") as f:
             f.write(BUILD)
         subprocess.check_output(
-            ["bazel", "build", "//.ibzlnb/%s:libjupyterInstalledPackages.so" % tmpdir]
+            ["bazel", "build", "//.ibzlnb/%s:libjupyterInstalledPackages.so" % tmpdir, "--compilation_mode=opt", "--copt=-fPIC"]
         )
         env = dict(os.environ, CC="clang")
         result = subprocess.check_output(
@@ -1249,6 +1249,7 @@ class SwiftKernel(Kernel):
                     [
                         "bazel",
                         "aquery",
+                        "--compilation_mode=opt",
                         "mnemonic(SwiftCompile, %s)" % dep,
                         "--output=jsonproto",
                         "--include_artifacts=false",
