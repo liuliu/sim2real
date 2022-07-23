@@ -94,6 +94,16 @@ enum JupyterDisplay {
       ]
     }
 
+    var json: String {
+      let encoder = JSONEncoder()
+      let array = [
+        messageType, delimiter, hmacSignature, header.json, parentHeader, metadata, content,
+      ]
+      guard let jsonData = try? encoder.encode(array) else { return "[]" }
+      let jsonString = String(data: jsonData, encoding: .utf8)!
+      return jsonString
+    }
+
     init(content: String = "{}") {
       header = Header(
         username: JupyterKernel.communicator.jupyterSession.username,
@@ -283,6 +293,17 @@ extension JupyterDisplay {
     let textData = JupyterDisplay.TextData(text: text)
     let data = JupyterDisplay.MessageContent(metadata: metadata ?? "{}", data: textData).json
     JupyterDisplay.messages.append(JupyterDisplay.Message(content: data))
+  }
+
+  static func flush() {
+    // Encode the messages into JSON array and push out into stdout. The StdoutHandler was enhanced
+    // to parse special boundary chars and send display message to Jupyter accordingly.
+    let boundary = "\(String(JupyterKernel.communicator.jupyterSession.id.reversed()))flush"
+    let payload =
+      "--\(boundary)[\(JupyterDisplay.messages.map({ $0.json }).joined(separator: ","))]--\(boundary)--"
+    guard let data = payload.data(using: .utf8) else { return }
+    try? FileHandle.standardOutput.write(contentsOf: data)
+    JupyterDisplay.messages = []
   }
 }
 

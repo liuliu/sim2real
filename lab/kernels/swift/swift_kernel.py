@@ -153,6 +153,9 @@ class StdoutHandler(threading.Thread):
         self.kernel = kernel
         self.stop_event = threading.Event()
         self.had_stdout = False
+        self.pending_display_message = None
+        self.display_boundary_start = "--" + kernel.session.session[::-1] + "flush"
+        self.display_boundary_end = "--" + kernel.session.session[::-1] + "flush--"
 
     def _get_stdout(self):
         while True:
@@ -179,11 +182,37 @@ class StdoutHandler(threading.Thread):
                 self.kernel.iopub_socket, "stream", {"name": "stdout", "text": stdout}
             )
 
+    def _send_display_messages(self, display_messages):
+        display_messages = json.loads(display_messages)
+        for display_message in display_messages:
+            display_message = list(map(lambda x: x.encode(), display_message))
+            self.kernel.iopub_socket.send_multipart(display_message)
+
     def _get_and_send_stdout(self):
         stdout = "".join([buf for buf in self._get_stdout()])
-        if len(stdout) > 0:
-            self.had_stdout = True
-            self._send_stdout(stdout)
+        while len(stdout) > 0:
+            if self.pending_display_message is not None:
+                loc = stdout.find(self.display_boundary_end)
+                if loc == -1:
+                    self.pending_display_message += stdout
+                    stdout = ""
+                else:
+                    self.had_stdout = True
+                    self._send_display_messages(self.pending_display_message + stdout[:loc])
+                    self.pending_display_message = None
+                    stdout = stdout[loc + len(self.display_boundary_end):]
+            else:
+                loc = stdout.find(self.display_boundary_start)
+                if loc == -1:
+                    self.had_stdout = True
+                    self._send_stdout("std:" + stdout)
+                    stdout = ""
+                else:
+                    if loc > 0:
+                        self.had_stdout = True
+                        self._send_stdout(stdout[:loc])
+                    self.pending_display_message = ""
+                    stdout = stdout[loc + len(self.display_boundary_start):]
 
     def run(self):
         try:
