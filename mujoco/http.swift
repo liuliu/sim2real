@@ -102,6 +102,8 @@ public class HTTPRenderServer {
   public func bind(host: String, port: Int) -> EventLoopFuture<Channel> {
     let group = MultiThreadedEventLoopGroup(numberOfThreads: numberOfThreads)
     self.group = group
+    self.host = host
+    self.port = port
     let upgrader = NIOWebSocketServerUpgrader(
       shouldUpgrade: { (channel: Channel, head: HTTPRequestHead) in
         channel.eventLoop.makeSucceededFuture(HTTPHeaders())
@@ -227,7 +229,9 @@ extension HTTPRenderServer {
     private var jsResponse: String {
       let firstPart = """
         (function () {
-          var wsconnection = new WebSocket("ws://" + window.location.host + "/\(self.streamKey).ws");
+          var mjpeg = document.getElementById("\(self.streamKey)-motion-jpeg-img");
+          var src = new URL(mjpeg.src)
+          var wsconnection = new WebSocket("ws://" + src.host + "/\(self.streamKey).ws");
           var commonKeyCodes = {
             "Space": 32,
             "Quote": 39, /* ' */
@@ -345,7 +349,6 @@ extension HTTPRenderServer {
             "ControlRight": 345,
             "AltRight": 346
           };
-          var mjpeg = document.getElementById("\(self.streamKey)-motion-jpeg-img");
           function onKeydown(e) {
             e.preventDefault();
             wsconnection.send(JSON.stringify({"keyCode": commonKeyCodes[e.code], "ctrlKey": e.ctrlKey, "altKey": e.altKey, "shiftKey": e.shiftKey}));

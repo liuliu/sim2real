@@ -220,10 +220,13 @@ def jsonrpc_request(method, stdin, params=None):
 def jsonrpc_notification(method, stdin, params=None):
     obj = {"jsonrpc": "2.0", "method": method, "params": params}
     jsonstr = json.dumps(obj)
-    stdin.write(
-        ("Content-Length: {}\r\n\r\n{}".format(len(jsonstr), jsonstr)).encode("utf-8")
-    )
-    stdin.flush()
+    try:
+        stdin.write(
+            ("Content-Length: {}\r\n\r\n{}".format(len(jsonstr), jsonstr)).encode("utf-8")
+        )
+        stdin.flush()
+    except Exception as e:
+        pass
 
 
 def jsonrpc_read_reply(request_id, stdout):
@@ -1556,8 +1559,7 @@ class SwiftKernel(Kernel):
             # There is no stdout, so it must be a compile error. Simply return
             # the error without trying to get a stack trace.
             self._send_iopub_error_message([result.description()])
-            self._make_execute_reply_error_message([result.description()])
-            return error_message
+            return self._make_execute_reply_error_message([result.description()])
 
     def _lldb_complete(self, code, cursor_pos):
         code_to_cursor = code[:cursor_pos]
@@ -1658,6 +1660,8 @@ class SwiftKernel(Kernel):
         # Need to cleanup the temporary Bazel dependency path.
         if hasattr(self, "bazel_dep_target_path"):
             shutil.rmtree(self.bazel_dep_target_path)
+        if self.process:
+            self.process.Kill()
 
 
 if __name__ == "__main__":
