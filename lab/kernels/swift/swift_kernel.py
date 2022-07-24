@@ -1254,7 +1254,8 @@ class SwiftKernel(Kernel):
         ).decode("utf-8")
         # Process *.swiftmodules files
         swift_module_search_paths = set()
-        for dep in result.split("\n"):
+        swift_libraries = result.split("\n")
+        for dep in swift_libraries:
             dep = dep.strip()
             if len(dep) == 0:
                 continue
@@ -1300,42 +1301,48 @@ class SwiftKernel(Kernel):
                 "bazel",
                 "--output_base=%s" % output_base,
                 "query",
-                "kind(cc_library, deps(//.ibzlnb/%s:libjupyterInstalledPackages.so))"
+                'attr(tags, "swift_module=\\w+", kind(cc_library, deps(//.ibzlnb/%s:libjupyterInstalledPackages.so)))'
                 % tmpdir,
             ],
             env=env,
         ).decode("utf-8")
-        # Process *.modulemaps
-        for dep in result.split("\n"):
+        swift_module_libraries = swift_libraries + list(
+            map(
+                lambda x: x + ".swift",
+                filter(lambda x: len(x.strip()) > 0, result.split("\n")),
+            )
+        )
+        # Process *.modulemap
+        for dep in swift_module_libraries:
             dep = dep.strip()
             if len(dep) == 0:
                 continue
             if dep[0] == "@":
                 parts = dep[1:].split("//")
-                modulemaps = (
+                modulemap = (
                     "/".join(
                         filter(
                             lambda x: len(x) > 0,
                             ["external", parts[0]] + parts[1].split(":"),
                         )
                     )
-                    + ".modulemaps"
+                    + ".modulemap"
                 )
             else:
                 parts = dep.split("//")
-                modulemaps = (
+                modulemap = (
                     "/".join(
                         filter(lambda x: len(x) > 0, [parts[0]] + parts[1].split(":"))
                     )
-                    + ".modulemaps"
+                    + ".modulemap"
                 )
-            modulemaps = os.path.join(bazel_bin_dir, modulemaps)
-            if os.path.exists(modulemaps):
-                swift_module_search_paths.add(os.path.dirname(modulemaps))
+            modulemap = os.path.join(bazel_bin_dir, modulemap)
+            if os.path.exists(modulemap):
+                swift_module_search_paths.add(os.path.dirname(modulemap))
                 self.send_response(
                     self.iopub_socket,
                     "stream",
-                    {"name": "stdout", "text": "modulemaps: %s\n" % modulemaps},
+                    {"name": "stdout", "text": "modulemap: %s\n" % modulemap},
                 )
         lib_filename = os.path.join(
             bazel_bin_dir, ".ibzlnb", tmpdir, "libjupyterInstalledPackages.so"
