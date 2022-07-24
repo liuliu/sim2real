@@ -70,9 +70,9 @@ pip_install(
 
 git_repository(
     name = "swift-mujoco",
-    commit = "5b7b9bc19c5fecafce79988ccbc542eae0b94e80",
+    commit = "3c0a4496bd3b984fb5ddceebc8f8def7c698bd2f",
     remote = "https://github.com/liuliu/swift-mujoco.git",
-    shallow_since = "1658459275 -0400"
+    shallow_since = "1658628786 -0400"
 )
 
 load("@swift-mujoco//:deps.bzl", "swift_mujoco_deps")

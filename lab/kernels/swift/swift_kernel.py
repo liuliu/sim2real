@@ -198,9 +198,11 @@ class StdoutHandler(threading.Thread):
                     stdout = ""
                 else:
                     self.had_stdout = True
-                    self._send_display_messages(self.pending_display_message + stdout[:loc])
+                    self._send_display_messages(
+                        self.pending_display_message + stdout[:loc]
+                    )
                     self.pending_display_message = None
-                    stdout = stdout[loc + len(self.display_boundary_end):]
+                    stdout = stdout[loc + len(self.display_boundary_end) :]
             else:
                 loc = stdout.find(self.display_boundary_start)
                 if loc == -1:
@@ -212,7 +214,7 @@ class StdoutHandler(threading.Thread):
                         self.had_stdout = True
                         self._send_stdout(stdout[:loc])
                     self.pending_display_message = ""
-                    stdout = stdout[loc + len(self.display_boundary_start):]
+                    stdout = stdout[loc + len(self.display_boundary_start) :]
 
     def run(self):
         try:
@@ -251,7 +253,9 @@ def jsonrpc_notification(method, stdin, params=None):
     jsonstr = json.dumps(obj)
     try:
         stdin.write(
-            ("Content-Length: {}\r\n\r\n{}".format(len(jsonstr), jsonstr)).encode("utf-8")
+            ("Content-Length: {}\r\n\r\n{}".format(len(jsonstr), jsonstr)).encode(
+                "utf-8"
+            )
         )
         stdin.flush()
     except Exception as e:
@@ -335,7 +339,9 @@ class SwiftKernel(Kernel):
         self.debugger.SetScriptLanguage(lldb.eScriptLanguageNone)
 
         repl_swift = os.environ["REPL_SWIFT_PATH"]
-        self.target = self.debugger.CreateTargetWithFileAndArch(repl_swift, lldb.LLDB_ARCH_DEFAULT)
+        self.target = self.debugger.CreateTargetWithFileAndArch(
+            repl_swift, lldb.LLDB_ARCH_DEFAULT
+        )
         if not self.target:
             raise Exception("Could not create target %s" % repl_swift)
 
@@ -1159,7 +1165,9 @@ class SwiftKernel(Kernel):
             tempfile.gettempdir(), "ibzl", sha256(workspace.encode("utf-8")).hexdigest()
         )
         bazel_bin_dir = (
-            subprocess.check_output(["bazel", "info", "bazel-bin", "--compilation_mode=opt"])
+            subprocess.check_output(
+                ["bazel", "info", "bazel-bin", "--compilation_mode=opt"]
+            )
             .decode("utf-8")
             .strip()
         )
@@ -1225,7 +1233,13 @@ class SwiftKernel(Kernel):
         with open("%s/BUILD.bazel" % bazel_dep_target_path, "w") as f:
             f.write(BUILD)
         subprocess.check_output(
-            ["bazel", "build", "//.ibzlnb/%s:libjupyterInstalledPackages.so" % tmpdir, "--compilation_mode=opt", "--copt=-fPIC"]
+            [
+                "bazel",
+                "build",
+                "//.ibzlnb/%s:libjupyterInstalledPackages.so" % tmpdir,
+                "--compilation_mode=opt",
+                "--copt=-fPIC",
+            ]
         )
         env = dict(os.environ, CC="clang")
         result = subprocess.check_output(
@@ -1690,7 +1704,7 @@ class SwiftKernel(Kernel):
         # Need to cleanup the temporary Bazel dependency path.
         if hasattr(self, "bazel_dep_target_path"):
             shutil.rmtree(self.bazel_dep_target_path)
-        if self.process:
+        if hasattr(self, "process") and self.process is not None:
             self.process.Kill()
 
 
