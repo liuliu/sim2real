@@ -1144,7 +1144,7 @@ class SwiftKernel(Kernel):
         # 2. We query all swift_library targets, and try to find the *.swiftmodule
         #    file. If we found, add the path to the swift_module_search_paths. Note
         #    that we don't move them around in fear of relative directory path issues.
-        # 3. We query all cc_library targets, and try to find module.modulemaps file.
+        # 3. We query all cc_library targets, and try to find module.modulemap file.
         #    If we found, add to the swift_module_search_paths.
         # 4. This doesn't cover some paths we simply added through -I during compilation.
         #    Hence, we queried the action graph to find the arguments we passed for
@@ -1313,6 +1313,8 @@ class SwiftKernel(Kernel):
             )
         )
         # Process *.modulemap
+        swift_module_search_path = os.path.join(bazel_dep_target_path, "modules")
+        os.makedirs(swift_module_search_path, exist_ok=True)
         for dep in swift_module_libraries:
             dep = dep.strip()
             if len(dep) == 0:
@@ -1337,13 +1339,50 @@ class SwiftKernel(Kernel):
                     + ".modulemap"
                 )
             modulemap = os.path.join(bazel_bin_dir, modulemap)
+            denylisted_modules = set(
+                [
+                    "_AtomicsShims",
+                    "CNIOWindows",
+                    "CCryptoBoringSSL",
+                    "CCryptoBoringSSLShims",
+                ]
+            )
             if os.path.exists(modulemap):
-                swift_module_search_paths.add(os.path.dirname(modulemap))
-                self.send_response(
-                    self.iopub_socket,
-                    "stream",
-                    {"name": "stdout", "text": "modulemap: %s\n" % modulemap},
+                # Swift REPL cannot understand modulemap with name other than "module.modulemap".
+                # Create the directory and symlink to the said location. Need to process relative
+                # Paths.
+                dirname = os.path.dirname(modulemap)
+                module_contents = ""
+                with open(modulemap, "r") as r:
+                    for line in r:
+                        module_match = re.match(r"module\s+([^\s]+)\s.*{", line)
+                        if module_match is not None:
+                            module_name = (
+                                module_match.group(1).strip('"')
+                                if module_match is not None
+                                else str(index)
+                            )
+                        m = re.search(r'"(\.\.\/.+)"', line)
+                        while m is not None:
+                            line = os.path.normpath(
+                                os.path.join(dirname, m.group(1))
+                            ).join([line[: m.start(1)], line[m.end(1) :]])
+                            m = re.search(r'"(\.\.\/.+)"', line)
+                        module_contents += line
+                if (
+                    module_name in denylisted_modules
+                ):  # lldb cannot import these modules for reasons unknown (Swift 5.6.2)
+                    continue
+                module_dirname = os.path.join(
+                    swift_module_search_path, "modulemap-%s" % module_name
                 )
+                module_modulemap = os.path.join(module_dirname, "module.modulemap")
+                os.makedirs(module_dirname, exist_ok=True)
+                if os.path.exists(module_modulemap):
+                    os.remove(module_modulemap)
+                with open(module_modulemap, "w") as w:
+                    w.write(module_contents)
+        swift_module_search_paths.add(swift_module_search_path)
         lib_filename = os.path.join(
             bazel_bin_dir, ".ibzlnb", tmpdir, "libjupyterInstalledPackages.so"
         )
