@@ -1,19 +1,6 @@
-load("@pip//:requirements.bzl", "requirement")
+load("@swift-jupyter//:lab.bzl", "jupyterlab")
 
-py_library(
-    name = "common",
-    visibility = ["//lab:__subpackages__"],
-    deps = [
-        requirement("jupyterlab"),
-    ],
-)
-
-py_binary(
+jupyterlab(
     name = "bootup",
-    srcs = ["bootup.py"],
-    data = ["//lab/kernels/swift:swift_kernel"],
-    deps = [
-        ":common",
-        "@bazel_tools//tools/python/runfiles",
-    ],
+    deps = [],
 )

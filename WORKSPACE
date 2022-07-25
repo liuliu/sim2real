@@ -69,6 +69,13 @@ pip_install(
 )
 
 git_repository(
+    name = "swift-jupyter",
+    commit = "daf4eef0ea20be0d6eec5306b5b1cfdb11550d1e",
+    remote = "https://github.com/liuliu/swift-jupyter.git",
+    shallow_since = "1658788905 -0400",
+)
+
+git_repository(
     name = "swift-mujoco",
     commit = "3c0a4496bd3b984fb5ddceebc8f8def7c698bd2f",
     remote = "https://github.com/liuliu/swift-mujoco.git",
