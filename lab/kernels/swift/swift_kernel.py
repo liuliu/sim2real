@@ -1313,6 +1313,20 @@ class SwiftKernel(Kernel):
             )
         )
         # Process *.modulemap
+        # First, loop through all module.modulemap from existing swift_module_search_paths, make sure
+        # that we don't import them twice. LLDB REPL doesn't treat duplicate modulemap well and will
+        # crash with IRGen errors at least in 5.6.2.
+        imported_modules = set()
+        for swift_module_search_path in swift_module_search_paths:
+            for modulemap in glob.glob(
+                swift_module_search_path + "/**/module.modulemap", recursive=True
+            ):
+                with open(modulemap, "r") as r:
+                    for line in r:
+                        module_match = re.match(r"module\s+([^\s]+)\s.*{", line)
+                        if module_match is not None:
+                            module_name = module_match.group(1).strip('"')
+                            imported_modules.add(module_name)
         swift_module_search_path = os.path.join(bazel_dep_target_path, "modules")
         os.makedirs(swift_module_search_path, exist_ok=True)
         for dep in swift_module_libraries:
@@ -1339,14 +1353,6 @@ class SwiftKernel(Kernel):
                     + ".modulemap"
                 )
             modulemap = os.path.join(bazel_bin_dir, modulemap)
-            denylisted_modules = set(
-                [
-                    "_AtomicsShims",
-                    "CNIOWindows",
-                    "CCryptoBoringSSL",
-                    "CCryptoBoringSSLShims",
-                ]
-            )
             if os.path.exists(modulemap):
                 # Swift REPL cannot understand modulemap with name other than "module.modulemap".
                 # Create the directory and symlink to the said location. Need to process relative
@@ -1357,11 +1363,7 @@ class SwiftKernel(Kernel):
                     for line in r:
                         module_match = re.match(r"module\s+([^\s]+)\s.*{", line)
                         if module_match is not None:
-                            module_name = (
-                                module_match.group(1).strip('"')
-                                if module_match is not None
-                                else str(index)
-                            )
+                            module_name = module_match.group(1).strip('"')
                         m = re.search(r'"(\.\.\/.+)"', line)
                         while m is not None:
                             line = os.path.normpath(
@@ -1369,9 +1371,8 @@ class SwiftKernel(Kernel):
                             ).join([line[: m.start(1)], line[m.end(1) :]])
                             m = re.search(r'"(\.\.\/.+)"', line)
                         module_contents += line
-                if (
-                    module_name in denylisted_modules
-                ):  # lldb cannot import these modules for reasons unknown (Swift 5.6.2)
+                # If it is already imported, don't create the module.modulemap.
+                if module_name in imported_modules:
                     continue
                 module_dirname = os.path.join(
                     swift_module_search_path, "modulemap-%s" % module_name
