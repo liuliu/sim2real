@@ -3,9 +3,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 git_repository(
     name = "s4nnc",
-    commit = "1264e912387c36cc13339000f2c79ccaeb14dfb5",
+    commit = "50fc0f5ac8b157f0b3eb6b5173a4873be723040b",
     remote = "https://github.com/liuliu/s4nnc.git",
-    shallow_since = "1658975980 -0400",
+    shallow_since = "1659049918 -0400",
 )
 
 load("@s4nnc//:deps.bzl", "s4nnc_deps")
@@ -70,9 +70,9 @@ pip_install(
 
 git_repository(
     name = "swift-jupyter",
-    commit = "606908c588fcab52eb25211d89c01f19d9f8d2ad",
+    commit = "8e8bc98c11381d62bc76fafbf5e0e50522e67a78",
     remote = "https://github.com/liuliu/swift-jupyter.git",
-    shallow_since = "1658966180 -0400",
+    shallow_since = "1659051282 -0400",
 )
 
 git_repository(
