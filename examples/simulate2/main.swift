@@ -1,6 +1,6 @@
 import Foundation
+import Gym
 import MuJoCo
-import MuJoCoJupyterExtensions
 import Numerics
 
 let simulate = Simulate(width: 1920, height: 1080)

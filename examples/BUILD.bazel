@@ -4,7 +4,8 @@ swift_binary(
     name = "simulate2",
     srcs = ["simulate2/main.swift"],
     deps = [
-        "//mujoco:jupyter",
         "@SwiftNumerics//:Numerics",
+        "@s4nnc//gym",
+        "@swift-mujoco//:swift-mujoco",
     ],
 )

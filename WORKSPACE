@@ -3,9 +3,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 git_repository(
     name = "s4nnc",
-    commit = "50fc0f5ac8b157f0b3eb6b5173a4873be723040b",
+    commit = "7b23f86305ab824a098b662b88186e89852e54be",
     remote = "https://github.com/liuliu/s4nnc.git",
-    shallow_since = "1659049918 -0400",
+    shallow_since = "1659718430 -0400",
 )
 
 load("@s4nnc//:deps.bzl", "s4nnc_deps")
@@ -149,6 +149,10 @@ new_git_repository(
     remote = "https://github.com/apple/swift-crypto.git",
     shallow_since = "1641892042 +0000",
 )
+
+load("@s4nnc//:deps.bzl", "s4nnc_extra_deps")
+
+s4nnc_extra_deps()
 
 # buildifier is written in Go and hence needs rules_go to be built.
 # See https://github.com/bazelbuild/rules_go for the up to date setup instructions.
