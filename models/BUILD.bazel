@@ -1,0 +1,5 @@
+filegroup(
+    name = "biped",
+    srcs = ["biped.xml"],
+    visibility = ["//visibility:public"],
+)
