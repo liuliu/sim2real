@@ -21,8 +21,8 @@ public final class Biped: MuJoCoEnv {
   private var sfmt: SFMT
 
   public init(
-    ctrlCostWeight: Double = 0.1, healthyReward: Double = 5, terminateWhenUnhealthy: Bool = true,
-    healthyZRange: ClosedRange<Double> = 0.5...1.0, resetNoiseScale: Double = 0.02
+    ctrlCostWeight: Double = 0.01, healthyReward: Double = 5, terminateWhenUnhealthy: Bool = true,
+    healthyZRange: ClosedRange<Double> = 0.5...1.0, resetNoiseScale: Double = 0.01
   ) throws {
     if let runfilesDir = ProcessInfo.processInfo.environment["RUNFILES_DIR"] {
       model = try MjModel(fromXMLPath: runfilesDir + "/__main__/models/biped.xml")
@@ -94,23 +94,23 @@ extension Biped: Env {
     precondition(id >= 0)
     let xyPositionBefore = (data.xpos[Int(id) * 3], data.xpos[Int(id) * 3 + 1])
     data.ctrl[...] = action
-    model.step(data: &data)
+    for _ in 0..<2 {
+      model.step(data: &data)
+    }
     let xyPositionAfter = (data.xpos[Int(id) * 3], data.xpos[Int(id) * 3 + 1])
-    let dt = model.opt.timestep
+    let dt = model.opt.timestep * 2
     let xyVelocity = (
       (xyPositionAfter.0 - xyPositionBefore.0) / dt, (xyPositionAfter.1 - xyPositionBefore.1) / dt
     )
-    let z = data.qpos[2]
-    let forwardReward = 0.0  // 10 * abs(z - 0.8) + abs(xyPositionAfter.0) + abs(xyPositionAfter.1)
+    let forwardReward = abs(xyPositionAfter.1)
     let healthyReward = isHealthy || terminateWhenUnhealthy ? self.healthyReward : 0
     var ctrlCost: Double = 0
     for i in 0..<6 {
       ctrlCost += Double(action[i] * action[i])
     }
     ctrlCost *= ctrlCostWeight
-    let rewards = forwardReward + healthyReward + min(20, Double(length) * 0.05)
-    let standingCost = 10 * abs(z - 0.8) + abs(xyPositionAfter.0) + abs(xyPositionAfter.1)
-    let costs = ctrlCost + standingCost
+    let rewards = forwardReward + healthyReward
+    let costs = ctrlCost
     let obs = observations()
     let reward = Float(rewards - costs)
     length += 1
@@ -153,5 +153,7 @@ extension Biped: Env {
     return (obs, [:])
   }
 
-  public var rewardThreshold: Float { 6_000 }
+  public static var rewardThreshold: Float { 6_000 }
+  public static var actionSpace: [ClosedRange<Float>] { Array(repeating: -1...1, count: 6) }
+  public static var stateSize: Int { 1150 }
 }

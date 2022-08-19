@@ -6,8 +6,11 @@ import NNC
 import Numerics
 import TensorBoard
 
-let input_dim = 1150
-let output_dim = 6
+typealias TargetEnv = Biped
+
+let input_dim = TargetEnv.stateSize
+let output_dim = TargetEnv.actionSpace.count
+let action_range: Float = TargetEnv.actionSpace[0].upperBound
 
 func NetA() -> (Model, Model) {
   let lastLayer = Dense(count: output_dim)
@@ -39,24 +42,24 @@ let actor_lr: Float = 3e-4
 let critic_lr: Float = 3e-4
 let max_epoch = 100
 let step_per_epoch = 30_000
-let collect_per_step = 20_000
+let collect_per_step = 15_000
 let update_per_step = 10
 let batch_size = 64
 let vf_coef: Float = 0.25
-let ent_coef: Float = 0.001
+let ent_coef: Float = 0.0
 let training_num = 64
 let testing_num = 10
 let max_grad_norm: Float = 0.5
 let eps_clip: Float = 0.2
 
-var envs = [TimeLimit<Biped>]()
+var envs = [TimeLimit<TargetEnv>]()
 for i in 0..<training_num {
-  let env = TimeLimit(env: try Biped(), maxEpisodeSteps: 1_000)
+  let env = TimeLimit(env: try TargetEnv(), maxEpisodeSteps: 1_000)
   let _ = env.reset(seed: i)
   envs.append(env)
 }
 DynamicGraph.setSeed(0)
-var testEnv = TimeLimit(env: try Biped(), maxEpisodeSteps: 1_000)
+var testEnv = TimeLimit(env: try TargetEnv(), maxEpisodeSteps: 1_000)
 let _ = testEnv.reset(seed: 180)
 let viewer = MuJoCoViewer(env: testEnv)
 var episodes = 0
@@ -66,7 +69,7 @@ let critic = NetC()
 
 var actorOptim = AdamOptimizer(graph, rate: actor_lr)
 let scale = graph.variable(.GPU(0), .C(output_dim), of: Float32.self)
-scale.full(0)
+scale.full(-0.5)
 actorOptim.parameters = [actor.parameters, scale]
 var criticOptim = AdamOptimizer(graph, rate: critic_lr)
 criticOptim.parameters = [critic.parameters]
@@ -84,11 +87,12 @@ var obsRms = RunningMeanStd(
   })())
 var env_step = 0
 var initActorLastLayer = false
-var training_collector = Collector<Float, PPO.ContinuousActionSpace, TimeLimit<Biped>, Double>(
+var training_collector = Collector<Float, PPO.ContinuousState, TimeLimit<TargetEnv>, Double>(
   envs: envs
 ) {
   let obs = graph.variable(Tensor<Float>(from: $0).toGPU(0))
   let variable = obsRms.norm(obs)
+  variable.clamp(-10...10)
   obsRms.update([obs])
   let act = DynamicGraph.Tensor<Float32>(actor(inputs: variable)[0])
   if !initActorLastLayer {
@@ -104,10 +108,14 @@ var training_collector = Collector<Float, PPO.ContinuousActionSpace, TimeLimit<B
   }
   let n = graph.variable(Tensor<Float32>(.GPU(0), .C(output_dim)))
   n.randn(std: 1, mean: 0)
-  let act_f = (n .* Functional.exp(scale) + act).clamped(-1...1).toCPU().rawValue.copied()
-  let act_mu = act.toCPU().rawValue.copied()
+  let act_f = n .* Functional.exp(scale) + act
+  let action = act_f.rawValue.toCPU()
+  // This is clamp + action scaling
+  let map_action = (action_range * act_f.clamped(-1...1)).rawValue.toCPU()
+  let act_mu = act.rawValue.toCPU()
   return (
-    act_f, PPO.ContinuousActionSpace(centroid: act_mu, observation: variable.rawValue.toCPU())
+    map_action,
+    PPO.ContinuousState(centroid: act_mu, action: action, observation: variable.rawValue.toCPU())
   )
 }
 var ppo = PPO(graph: graph) {
@@ -122,8 +130,10 @@ for epoch in 0..<max_epoch {
     var collectedData = training_collector.data
     training_collector.resetData()
     for (i, buffer) in collectedData.enumerated() {
-      let obs = graph.variable(Tensor<Float>(from: buffer.lastObservation).toGPU(0))
+      guard let lastObservation = buffer.lastObservation else { continue }
+      let obs = graph.variable(Tensor<Float>(from: lastObservation).toGPU(0))
       let variable = obsRms.norm(obs)
+      variable.clamp(-10...10)
       obsRms.update([obs])
       collectedData[i].lastObservation = variable.rawValue.toCPU()
     }
@@ -141,7 +151,8 @@ for epoch in 0..<max_epoch {
     for _ in 0..<update_per_step {
       let (returns, advantages) = ppo.computeReturns(from: collectedData)
       var dataframe = PPO.samples(
-        from: collectedData, episodeCount: batch_size, using: &sfmt, returns: returns,
+        from: collectedData, episodeCount: max(collectedData.count, batch_size), using: &sfmt,
+        returns: returns,
         advantages: advantages, oldDistributions: oldDistributions)
       dataframe.shuffle()
       let batched = dataframe[
@@ -170,7 +181,7 @@ for epoch in 0..<max_epoch {
         grad.full(-1.0 / Float(batch_size))
         clip_loss.grad = grad
         clip_loss.backward(to: [variable, scale])
-        actor.parameters.clipGradNorm(maxNorm: 0.5)
+        actor.parameters.clipGradNorm(maxNorm: max_grad_norm)
         actorOptim.step()
         let v = DynamicGraph.Tensor<Float32>(critic(inputs: variable)[0])
         let returnsv = graph.constant(returns.toGPU(0))
@@ -190,32 +201,41 @@ for epoch in 0..<max_epoch {
     }
     criticLoss = criticLoss / Float(batch_size * update_count)
     actorLoss = -actorLoss / Float(batch_size * update_count)
+    if criticLoss < 1e-4 {
+      // If critic loss is too small, reseed the scale.
+      scale.full(-0.5)
+    }
     let scaleCPU = scale.toCPU()
     print(
-      "rew std \(ppo.statistics.rewardsNormalization.std), log scale [\(scaleCPU[0]), \(scaleCPU[1]), \(scaleCPU[2]), \(scaleCPU[3]), \(scaleCPU[4]), \(scaleCPU[5])]"
+      "rew std \(ppo.statistics.rewardsNormalization.std), log scale \(Array(scaleCPU.rawValue))"
     )
     print(
       "Epoch \(epoch), step \(env_step), critic loss \(criticLoss), actor loss \(actorLoss), reward \(stats.episodeReward.mean) (±\(stats.episodeReward.std)), length \(stats.episodeLength.mean) (±\(stats.episodeLength.std))"
     )
+    if actorLoss > 10_000 {
+      try summary.close()
+      fatalError()
+    }
     summary.addGraph("actor", actor)
     summary.addGraph("critic", critic)
     summary.addScalar("critic_loss", criticLoss, step: epoch)
     summary.addScalar("actor_loss", actorLoss, step: epoch)
     summary.addScalar("avg_reward", stats.episodeReward.mean, step: epoch)
+    summary.addScalar("avg_length", stats.episodeLength.mean, step: epoch)
   }
   // Running test and print how many steps we can perform in an episode before it fails.
   let (obs, _) = testEnv.reset()
   var last_obs = Tensor<Float>(from: obs)
-  summary.addHistogram("init_obs", last_obs, step: epoch)
   var testing_rewards = [Float]()
   for _ in 0..<testing_num {
     var rewards: Float = 0
     while true {
       let lastObs = graph.variable(last_obs.toGPU(0))
       let variable = obsRms.norm(lastObs)
+      variable.clamp(-10...10)
       let act = DynamicGraph.Tensor<Float32>(actor(inputs: variable)[0])
       act.clamp(-1...1)
-      let act_v = act.rawValue.toCPU()
+      let act_v = (action_range * act).rawValue.toCPU()
       let (obs, reward, done, _) = testEnv.step(action: Tensor(from: act_v))
       last_obs = Tensor(from: obs)
       rewards += reward
@@ -229,7 +249,8 @@ for epoch in 0..<max_epoch {
   }
   let avg_testing_rewards = NumericalStatistics(testing_rewards)
   print("Epoch \(epoch), testing reward \(avg_testing_rewards.mean) (±\(avg_testing_rewards.std))")
-  if avg_testing_rewards.mean > testEnv.rewardThreshold {
+  summary.addScalar("testing_reward", avg_testing_rewards.mean, step: epoch)
+  if avg_testing_rewards.mean > TargetEnv.rewardThreshold {
     break
   }
 }
@@ -239,9 +260,10 @@ var last_obs = Tensor<Float>(from: obs)
 while episodes < 10 {
   let lastObs = graph.variable(last_obs.toGPU(0))
   let variable = obsRms.norm(lastObs)
+  variable.clamp(-10...10)
   let act = DynamicGraph.Tensor<Float32>(actor(inputs: variable)[0])
   act.clamp(-1...1)
-  let act_v = act.rawValue.toCPU()
+  let act_v = (action_range * act).rawValue.toCPU()
   let (obs, _, done, _) = testEnv.step(action: Tensor(from: act_v))
   last_obs = Tensor(from: obs)
   if done {
