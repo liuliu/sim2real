@@ -1,4 +1,4 @@
-<mujoco model="ant">
+<mujoco model="biped">
   <compiler angle="degree" coordinate="local" inertiafromgeom="true"/>
   <option integrator="RK4" timestep="0.01"/>
   <custom>

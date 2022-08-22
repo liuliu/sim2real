@@ -22,7 +22,7 @@ public final class Biped: MuJoCoEnv {
 
   public init(
     ctrlCostWeight: Double = 0.01, healthyReward: Double = 5, terminateWhenUnhealthy: Bool = true,
-    healthyZRange: ClosedRange<Double> = 0.5...1.0, resetNoiseScale: Double = 0.01
+    healthyZRange: ClosedRange<Double> = 0.6...1.0, resetNoiseScale: Double = 0.01
   ) throws {
     if let runfilesDir = ProcessInfo.processInfo.environment["RUNFILES_DIR"] {
       model = try MjModel(fromXMLPath: runfilesDir + "/__main__/models/biped.xml")
@@ -102,14 +102,14 @@ extension Biped: Env {
     let xyVelocity = (
       (xyPositionAfter.0 - xyPositionBefore.0) / dt, (xyPositionAfter.1 - xyPositionBefore.1) / dt
     )
-    let forwardReward = abs(xyPositionAfter.1)
+    let forwardReward = xyVelocity.1
     let healthyReward = isHealthy || terminateWhenUnhealthy ? self.healthyReward : 0
     var ctrlCost: Double = 0
     for i in 0..<6 {
       ctrlCost += Double(action[i] * action[i])
     }
     ctrlCost *= ctrlCostWeight
-    let rewards = forwardReward + healthyReward
+    let rewards = healthyReward
     let costs = ctrlCost
     let obs = observations()
     let reward = Float(rewards - costs)
