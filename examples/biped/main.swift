@@ -255,6 +255,11 @@ for epoch in 0..<max_epoch {
   }
 }
 
+graph.openStore("/home/liu/workspace/sim2real/examples/biped/biped.checkpoint") { store in
+  store.write("actor", model: actor)
+  store.write("critic", model: critic)
+}
+
 let (obs, _) = testEnv.reset()
 var last_obs = Tensor<Float>(from: obs)
 while episodes < 10 {
